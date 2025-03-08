@@ -105,8 +105,6 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
 
     next_horizontal_touch_x := horizontal_x_intercept
     next_horizontal_touch_y := horizontal_y_intercept
-
-    //next_horizontal_touch_y -= 1 if !isRayDown else 0
     
     horizontal_wall_hit_x := f64(0)
     horizontal_wall_hit_y := f64(0)
@@ -135,7 +133,6 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     next_vertical_touch_x := vertical_x_intercept
     next_vertical_touch_y := vertical_y_intercept
 
-    
     vertical_wall_hit_x := f64(0)
     vertical_wall_hit_y := f64(0)
 
@@ -165,7 +162,6 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
       res_y = vertical_wall_hit_y
     }
 
-    //sdl3.RenderLine(renderer, f32( player.x ), f32( player.y ), f32(player.x)+f32(math.cos(newRay))*30, f32(player.y)+f32(math.sin(newRay))*30)
     sdl3.RenderLine(renderer, f32(player.x), f32(player.y), f32(res_x), f32(res_y))
     rayAngle += FOV_ANGLE / NUM_RAYS
   }
@@ -231,8 +227,6 @@ main::proc() {
     }
 
     render_circle(renderer, player.x, player.y, int(player.radius))
-    //sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
-    //sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(player.x + player.radius * math.cos(player.rotationAngle)), f32(player.y + player.radius * math.sin(player.rotationAngle)))
     sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
     cast_rays(renderer, &player)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
