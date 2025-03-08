@@ -24,10 +24,10 @@ render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radi
     points[drawCount+1] = {f32( center_x + x ), f32(center_y + y)}
     points[drawCount+2] = {f32( center_x - x ), f32(center_y - y)}
     points[drawCount+3] = {f32( center_x - x ), f32(center_y + y)}
-    points[drawCount+4] = {f32( center_x + x ), f32(center_y - y)}
-    points[drawCount+5] = {f32( center_x + x ), f32(center_y + y)}
-    points[drawCount+6] = {f32( center_x - x ), f32(center_y - y)}
-    points[drawCount+7] = {f32( center_x - x ), f32(center_y + y)}
+    points[drawCount+4] = {f32( center_x + y ), f32(center_y - x)}
+    points[drawCount+5] = {f32( center_x + y ), f32(center_y + x)}
+    points[drawCount+6] = {f32( center_x - y ), f32(center_y - x)}
+    points[drawCount+7] = {f32( center_x - y ), f32(center_y + x)}
 
     drawCount += 8
 
@@ -44,7 +44,7 @@ render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radi
   }
 
   sdl3.SetRenderDrawColor(renderer, 255, 0,  0, 255)
-  assert(sdl3.RenderPoints(renderer, points, arrSize) == true,strings.clone_from_cstring(sdl3.GetError()))
+  assert(sdl3.RenderLines(renderer, points, arrSize) == true,strings.clone_from_cstring(sdl3.GetError()))
 }
 
 
