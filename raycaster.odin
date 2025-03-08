@@ -5,6 +5,42 @@ import "core:fmt"
 import "core:strings"
 import "core:math"
 
+
+Player::struct {
+  x: f64, 
+  y: f64,
+  radius: f64,
+  turnDirection: f64, // -1 if left, +1 if right
+  walkDirection: f64, // -1 if back, +1 if right
+  rotationAngle: f64,
+  moveSpeed: f64,
+  rotationSpeed: f64
+}
+
+
+TILE_SIZE :: 64
+MAP_NUM_ROWS :: 11
+MAP_NUM_COLS :: 15
+FOV_ANGLE :: 60 * (math.PI/180)
+WALL_STRIP_WIDTH :: 1
+NUM_RAYS :: WINDOW_WIDTH / WALL_STRIP_WIDTH
+WINDOW_WIDTH :: MAP_NUM_COLS*TILE_SIZE 
+WINDOW_HEIGHT :: MAP_NUM_ROWS*TILE_SIZE 
+
+walls := [MAP_NUM_ROWS*MAP_NUM_COLS]u8{
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+  1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1,
+  1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+  1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+}
+
 render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radius: int) {
   arrSize := i32(((radius * 8 * 35 / 49) + (8 - 1)) & -8)
   points := make([^]sdl3.FPoint, arrSize)
@@ -47,17 +83,98 @@ render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radi
   assert(sdl3.RenderLines(renderer, points, arrSize) == true,strings.clone_from_cstring(sdl3.GetError()))
 }
 
+normalizeAngle::proc(angle: f64) -> f64 {
+  return angle - (2 * math.PI * math.floor(angle / (2*math.PI)))
+}
+
+cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
+  rayAngle := player.rotationAngle - (FOV_ANGLE/2)
+  for i in 0..<NUM_RAYS {
+    newRay := normalizeAngle(rayAngle)
+    isRayDown := newRay > 0 && newRay < math.PI
+    isRayRight := newRay < 0.5 * math.PI || newRay > 1.5 * math.PI
+
+    // horizontal interception
+    horizontal_y_intercept := f64(int(player.y/TILE_SIZE)*TILE_SIZE) + (TILE_SIZE if isRayDown else 0)
+    horizontal_x_intercept := player.x+(horizontal_y_intercept-player.y)/math.tan(newRay)
+
+    horizontal_x_step := TILE_SIZE/math.tan(newRay)
+    horizontal_x_step *= (-1 if !isRayRight && horizontal_x_step > 0 else 1)
+    horizontal_x_step *= (-1 if isRayRight && horizontal_x_step < 0 else 1)
+    horizontal_y_step := f64(TILE_SIZE * (-1 if !isRayDown else 1))
+
+    next_horizontal_touch_x := horizontal_x_intercept
+    next_horizontal_touch_y := horizontal_y_intercept
+
+    //next_horizontal_touch_y -= 1 if !isRayDown else 0
+    
+    horizontal_wall_hit_x := f64(0)
+    horizontal_wall_hit_y := f64(0)
+
+    for next_horizontal_touch_x >= 0 && next_horizontal_touch_x <= WINDOW_WIDTH && next_horizontal_touch_y >= 0 && next_horizontal_touch_y <= WINDOW_HEIGHT{
+      if (walls[int((next_horizontal_touch_y-(1 if !isRayDown else 0))/TILE_SIZE)*MAP_NUM_COLS+int(next_horizontal_touch_x/TILE_SIZE)] == 1) {
+        horizontal_wall_hit_x = next_horizontal_touch_x
+        horizontal_wall_hit_y = next_horizontal_touch_y
+        break
+      }
+      else {
+        next_horizontal_touch_x += horizontal_x_step
+        next_horizontal_touch_y += horizontal_y_step
+      }
+    }
+
+    // vertical_interception
+    vertical_x_intercept := f64(int(player.x/TILE_SIZE)*TILE_SIZE) + (TILE_SIZE if isRayRight else 0)
+    vertical_y_intercept := player.y+(vertical_x_intercept-player.x)*math.tan(newRay)
+
+    vertical_y_step := TILE_SIZE*math.tan(newRay)
+    vertical_y_step *= (-1 if !isRayDown && vertical_y_step > 0 else 1)
+    vertical_y_step *= (-1 if isRayDown && vertical_y_step < 0 else 1)
+    vertical_x_step := f64(TILE_SIZE * (-1 if !isRayRight else 1))
+
+    next_vertical_touch_x := vertical_x_intercept
+    next_vertical_touch_y := vertical_y_intercept
+
+    
+    vertical_wall_hit_x := f64(0)
+    vertical_wall_hit_y := f64(0)
+
+    for next_vertical_touch_x >= 0 && next_vertical_touch_x <= WINDOW_WIDTH && next_vertical_touch_y >= 0 && next_vertical_touch_y <= WINDOW_HEIGHT{
+      if (walls[int(next_vertical_touch_y/TILE_SIZE)*MAP_NUM_COLS+int((next_vertical_touch_x-(1 if !isRayRight else 0))/TILE_SIZE)] == 1) {
+        vertical_wall_hit_x = next_vertical_touch_x
+        vertical_wall_hit_y = next_vertical_touch_y
+        break
+      }
+      else {
+        next_vertical_touch_x += vertical_x_step
+        next_vertical_touch_y += vertical_y_step
+      }
+    }
+
+    horizontal_hit_distance := math.sqrt(math.pow(player.x - horizontal_wall_hit_x, 2) + math.pow(player.y - horizontal_wall_hit_y, 2))
+    vertical_hit_distance := math.sqrt(math.pow(player.x - vertical_wall_hit_x, 2) + math.pow(player.y - vertical_wall_hit_y, 2))
+
+    res_x, res_y : f64
+
+    if horizontal_hit_distance < vertical_hit_distance {
+      res_x = horizontal_wall_hit_x
+      res_y = horizontal_wall_hit_y
+    }
+    else { 
+      res_x = vertical_wall_hit_x
+      res_y = vertical_wall_hit_y
+    }
+
+    //sdl3.RenderLine(renderer, f32( player.x ), f32( player.y ), f32(player.x)+f32(math.cos(newRay))*30, f32(player.y)+f32(math.sin(newRay))*30)
+    sdl3.RenderLine(renderer, f32(player.x), f32(player.y), f32(res_x), f32(res_y))
+    rayAngle += FOV_ANGLE / NUM_RAYS
+  }
+}
 
 main::proc() {
   assert(sdl3.Init(sdl3.INIT_VIDEO) == true, strings.clone_from_cstring(sdl3.GetError()))
   defer sdl3.Quit()
 
-  TILE_SIZE :: 32
-  MAP_NUM_ROWS :: 11
-  MAP_NUM_COLS :: 15
-
-  WINDOW_WIDTH :: MAP_NUM_COLS*TILE_SIZE 
-  WINDOW_HEIGHT :: MAP_NUM_ROWS*TILE_SIZE 
   window := sdl3.CreateWindow("raycaster", WINDOW_WIDTH, WINDOW_HEIGHT, sdl3.WINDOW_BORDERLESS);
   defer sdl3.DestroyWindow(window);
 
@@ -65,31 +182,8 @@ main::proc() {
   assert(renderer != nil, strings.clone_from_cstring(sdl3.GetError()))
   defer sdl3.DestroyRenderer(renderer)
 
-  walls := [MAP_NUM_ROWS*MAP_NUM_COLS]u8{
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
-    1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1,
-    1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1,
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-  }
-
-  Player::struct {
-    x: f64, 
-    y: f64,
-    radius: f64,
-    turnDirection: f64, // -1 if left, +1 if right
-    walkDirection: f64, // -1 if back, +1 if right
-    rotationAngle: f64,
-    moveSpeed: f64,
-    rotationSpeed: f64
-  }
   player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 16, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
+
 
   for {
     event: sdl3.Event
@@ -113,18 +207,17 @@ main::proc() {
     }
     player.rotationAngle += player.turnDirection * player.rotationSpeed
     moveStep := f64(player.walkDirection * player.moveSpeed)
-    if player.walkDirection != 0 {
-          fmt.printf("{} {}\n", player.x, player.y)
-          fmt.printf("{} {}\n", int(player.x)/32, int(player.y)/32)
-          fmt.printf("{} {}\n", int(player.x)/32, int(player.y)/32)
-    }
+
     newX := player.x + math.cos(player.rotationAngle) * moveStep
     newY := player.y + math.sin(player.rotationAngle) * moveStep
+
     if walls[int(newY/TILE_SIZE)*MAP_NUM_COLS+int(newX/TILE_SIZE)] == 0 {
       player.x = newX
       player.y = newY
     }
+
     sdl3.RenderClear(renderer)
+
     for i in 0..<MAP_NUM_ROWS {
       for j in 0..<MAP_NUM_COLS {
         if (walls[i*MAP_NUM_COLS+j]) == 1 {
@@ -133,12 +226,15 @@ main::proc() {
         else {
           sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
         }
-        sdl3.RenderFillRect(renderer, &sdl3.FRect{f32(j*32.0), f32(i*32.0), TILE_SIZE, TILE_SIZE})
+        sdl3.RenderFillRect(renderer, &sdl3.FRect{f32(j*TILE_SIZE), f32(i*TILE_SIZE), TILE_SIZE, TILE_SIZE})
       }
     }
+
     render_circle(renderer, player.x, player.y, int(player.radius))
-    sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
-    sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(player.x + player.radius * math.cos(player.rotationAngle)), f32(player.y + player.radius * math.sin(player.rotationAngle)))
+    //sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+    //sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(player.x + player.radius * math.cos(player.rotationAngle)), f32(player.y + player.radius * math.sin(player.rotationAngle)))
+    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
+    cast_rays(renderer, &player)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
 }
