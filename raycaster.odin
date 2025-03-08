@@ -5,14 +5,14 @@ import "core:fmt"
 import "core:strings"
 import "core:math"
 
-render_circle::proc(renderer: ^sdl3.Renderer, center_x: int, center_y: int, radius: int) {
+render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radius: int) {
   arrSize := i32(((radius * 8 * 35 / 49) + (8 - 1)) & -8)
   points := make([^]sdl3.FPoint, arrSize)
   drawCount := 0
   diameter := radius * 2
 
-  x := radius - 1
-  y := 0
+  x := f64(radius - 1)
+  y := f64(0)
 
   tx := 1
   ty := 1
@@ -80,10 +80,10 @@ main::proc() {
   }
 
   Player::struct {
-    x: int, 
-    y: int,
+    x: f64, 
+    y: f64,
     radius: int,
-    turnDirection: int, // -1 if left, +1 if right
+    turnDirection: f64, // -1 if left, +1 if right
     walkDirection: int, // -1 if back, +1 if right
     rotationAngle: f64,
     moveSpeed: int,
@@ -101,18 +101,22 @@ main::proc() {
         if event.key.scancode == sdl3.Scancode.ESCAPE do return
         if event.key.scancode == sdl3.Scancode.UP do player.walkDirection = 1
         if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = -1
-        if event.key.scancode == sdl3.Scancode.LEFT do player.rotationAngle = -1
-        if event.key.scancode == sdl3.Scancode.RIGHT do player.rotationAngle = 1
-        fmt.printf("{}, {}\n", player.walkDirection, player.rotationAngle)
+        if event.key.scancode == sdl3.Scancode.LEFT do player.turnDirection = -1
+        if event.key.scancode == sdl3.Scancode.RIGHT do player.turnDirection = 1
+        fmt.printf("{}, {}\n", player.walkDirection, player.turnDirection)
       case .KEY_UP:
         if event.key.scancode == sdl3.Scancode.ESCAPE do return
         if event.key.scancode == sdl3.Scancode.UP do player.walkDirection = 0
         if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = 0
-        if event.key.scancode == sdl3.Scancode.LEFT do player.rotationAngle = 0
-        if event.key.scancode == sdl3.Scancode.RIGHT do player.rotationAngle = 0
-        fmt.printf("{}, {}\n", player.walkDirection, player.rotationAngle)
+        if event.key.scancode == sdl3.Scancode.LEFT do player.turnDirection = 0
+        if event.key.scancode == sdl3.Scancode.RIGHT do player.turnDirection = 0
+        fmt.printf("{}, {}\n", player.walkDirection, player.turnDirection)
       }
     }
+    player.rotationAngle += player.turnDirection * player.rotationSpeed
+    moveStep := f64(player.walkDirection * player.moveSpeed)
+    player.x += math.cos(player.rotationAngle) * moveStep
+    player.y += math.sin(player.rotationAngle) * moveStep
     sdl3.RenderClear(renderer)
     for i in 0..<MAP_NUM_ROWS {
       for j in 0..<MAP_NUM_COLS {
@@ -126,8 +130,8 @@ main::proc() {
       }
     }
     render_circle(renderer, player.x, player.y, player.radius)
-
     sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+    sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(f64( player.x ) + f64(player.radius) * math.cos(player.rotationAngle)), f32(f64( player.y ) + f64(player.radius) * math.sin(player.rotationAngle)))
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
 }
