@@ -43,9 +43,8 @@ render_circle::proc(renderer: ^sdl3.Renderer, center_x: int, center_y: int, radi
     }
   }
 
-  sdl3.SetRenderDrawColor(renderer, 0, 255, 0, 255)
+  sdl3.SetRenderDrawColor(renderer, 255, 0,  0, 255)
   assert(sdl3.RenderPoints(renderer, points, arrSize) == true,strings.clone_from_cstring(sdl3.GetError()))
-  sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
 }
 
 
@@ -90,7 +89,7 @@ main::proc() {
     moveSpeed: int,
     rotationSpeed: f64
   }
-  player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 20, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
+  player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 16, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
 
   for {
     event: sdl3.Event
@@ -99,17 +98,35 @@ main::proc() {
       case .QUIT:
         return
       case .KEY_DOWN:
-        return
+        if event.key.scancode == sdl3.Scancode.ESCAPE do return
+        if event.key.scancode == sdl3.Scancode.UP do player.walkDirection = 1
+        if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = -1
+        if event.key.scancode == sdl3.Scancode.LEFT do player.rotationAngle = -1
+        if event.key.scancode == sdl3.Scancode.RIGHT do player.rotationAngle = 1
+        fmt.printf("{}, {}\n", player.walkDirection, player.rotationAngle)
+      case .KEY_UP:
+        if event.key.scancode == sdl3.Scancode.ESCAPE do return
+        if event.key.scancode == sdl3.Scancode.UP do player.walkDirection = 0
+        if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = 0
+        if event.key.scancode == sdl3.Scancode.LEFT do player.rotationAngle = 0
+        if event.key.scancode == sdl3.Scancode.RIGHT do player.rotationAngle = 0
+        fmt.printf("{}, {}\n", player.walkDirection, player.rotationAngle)
       }
     }
     sdl3.RenderClear(renderer)
     for i in 0..<MAP_NUM_ROWS {
       for j in 0..<MAP_NUM_COLS {
-        sdl3.SetRenderDrawColor(renderer, 255*(walls[i*MAP_NUM_COLS+j]), 0, 0, 255)
+        if (walls[i*MAP_NUM_COLS+j]) == 1 {
+          sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+        }
+        else {
+          sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
+        }
         sdl3.RenderFillRect(renderer, &sdl3.FRect{f32(j*32.0), f32(i*32.0), TILE_SIZE, TILE_SIZE})
       }
     }
     render_circle(renderer, player.x, player.y, player.radius)
+
     sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
