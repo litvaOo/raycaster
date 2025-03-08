@@ -82,11 +82,11 @@ main::proc() {
   Player::struct {
     x: f64, 
     y: f64,
-    radius: int,
+    radius: f64,
     turnDirection: f64, // -1 if left, +1 if right
-    walkDirection: int, // -1 if back, +1 if right
+    walkDirection: f64, // -1 if back, +1 if right
     rotationAngle: f64,
-    moveSpeed: int,
+    moveSpeed: f64,
     rotationSpeed: f64
   }
   player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 16, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
@@ -103,20 +103,27 @@ main::proc() {
         if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = -1
         if event.key.scancode == sdl3.Scancode.LEFT do player.turnDirection = -1
         if event.key.scancode == sdl3.Scancode.RIGHT do player.turnDirection = 1
-        fmt.printf("{}, {}\n", player.walkDirection, player.turnDirection)
       case .KEY_UP:
         if event.key.scancode == sdl3.Scancode.ESCAPE do return
         if event.key.scancode == sdl3.Scancode.UP do player.walkDirection = 0
         if event.key.scancode == sdl3.Scancode.DOWN do player.walkDirection = 0
         if event.key.scancode == sdl3.Scancode.LEFT do player.turnDirection = 0
         if event.key.scancode == sdl3.Scancode.RIGHT do player.turnDirection = 0
-        fmt.printf("{}, {}\n", player.walkDirection, player.turnDirection)
       }
     }
     player.rotationAngle += player.turnDirection * player.rotationSpeed
     moveStep := f64(player.walkDirection * player.moveSpeed)
-    player.x += math.cos(player.rotationAngle) * moveStep
-    player.y += math.sin(player.rotationAngle) * moveStep
+    if player.walkDirection != 0 {
+          fmt.printf("{} {}\n", player.x, player.y)
+          fmt.printf("{} {}\n", int(player.x)/32, int(player.y)/32)
+          fmt.printf("{} {}\n", int(player.x)/32, int(player.y)/32)
+    }
+    newX := player.x + math.cos(player.rotationAngle) * moveStep
+    newY := player.y + math.sin(player.rotationAngle) * moveStep
+    if walls[int(newY/TILE_SIZE)*MAP_NUM_COLS+int(newX/TILE_SIZE)] == 0 {
+      player.x = newX
+      player.y = newY
+    }
     sdl3.RenderClear(renderer)
     for i in 0..<MAP_NUM_ROWS {
       for j in 0..<MAP_NUM_COLS {
@@ -129,9 +136,9 @@ main::proc() {
         sdl3.RenderFillRect(renderer, &sdl3.FRect{f32(j*32.0), f32(i*32.0), TILE_SIZE, TILE_SIZE})
       }
     }
-    render_circle(renderer, player.x, player.y, player.radius)
+    render_circle(renderer, player.x, player.y, int(player.radius))
     sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
-    sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(f64( player.x ) + f64(player.radius) * math.cos(player.rotationAngle)), f32(f64( player.y ) + f64(player.radius) * math.sin(player.rotationAngle)))
+    sdl3.RenderLine(renderer, f32( player.x ), f32(player.y), f32(player.x + player.radius * math.cos(player.rotationAngle)), f32(player.y + player.radius * math.sin(player.rotationAngle)))
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
 }
