@@ -171,6 +171,7 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     }
 
     // render minimap_ray
+    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
     sdl3.RenderLine(renderer, f32(player.x)*MINIMAP_SCALE_FACTOR, f32(player.y)*MINIMAP_SCALE_FACTOR, f32(res_x)*MINIMAP_SCALE_FACTOR, f32(res_y)*MINIMAP_SCALE_FACTOR)
 
     // render actuall wall
@@ -179,10 +180,12 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     distance_to_projection_plane := (WINDOW_WIDTH/2) / math.tan(f64(FOV_ANGLE/2))
     wall_strip_height := (TILE_SIZE/distance) * distance_to_projection_plane;
 
-    fmt.println(255*f32(wall_strip_height/WINDOW_HEIGHT))
-    sdl3.SetRenderDrawColorFloat(renderer, 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT))
+    //fmt.println(255*f32(wall_strip_height/WINDOW_HEIGHT))
+    shade := f32(150/distance)
+    sdl3.SetRenderColorScale(renderer, 1*shade)
+    assert(sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255) == true, strings.clone_from_cstring(sdl3.GetError()))
     sdl3.RenderFillRect(renderer, &sdl3.FRect{f32( i*WALL_STRIP_WIDTH ), f32((WINDOW_HEIGHT/2)-(wall_strip_height/2)), WALL_STRIP_WIDTH, f32(wall_strip_height)})
-    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
+    sdl3.SetRenderColorScale(renderer, 1)
   
     rayAngle += FOV_ANGLE / NUM_RAYS
   }
@@ -199,6 +202,7 @@ main::proc() {
   assert(renderer != nil, strings.clone_from_cstring(sdl3.GetError()))
   defer sdl3.DestroyRenderer(renderer)
 
+  assert(sdl3.SetRenderDrawBlendMode(renderer, sdl3.BlendMode{.BLEND}) == true, strings.clone_from_cstring(sdl3.GetError()))
   player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 16, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
 
 
