@@ -153,18 +153,28 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     horizontal_hit_distance := math.sqrt(math.pow(player.x - horizontal_wall_hit_x, 2) + math.pow(player.y - horizontal_wall_hit_y, 2))
     vertical_hit_distance := math.sqrt(math.pow(player.x - vertical_wall_hit_x, 2) + math.pow(player.y - vertical_wall_hit_y, 2))
 
-    res_x, res_y : f64
+    res_x, res_y, distance : f64
 
     if horizontal_hit_distance < vertical_hit_distance {
       res_x = horizontal_wall_hit_x
       res_y = horizontal_wall_hit_y
+      distance = horizontal_hit_distance
     }
     else { 
       res_x = vertical_wall_hit_x
       res_y = vertical_wall_hit_y
+      distance = vertical_hit_distance
     }
 
+    // render minimap_ray
     sdl3.RenderLine(renderer, f32(player.x)*MINIMAP_SCALE_FACTOR, f32(player.y)*MINIMAP_SCALE_FACTOR, f32(res_x)*MINIMAP_SCALE_FACTOR, f32(res_y)*MINIMAP_SCALE_FACTOR)
+
+    // render actuall wall
+    distance_to_projection_plane := (WINDOW_WIDTH/2) / math.tan(f64(FOV_ANGLE/2))
+    wall_strip_height := (TILE_SIZE/distance) * distance_to_projection_plane;
+
+    sdl3.RenderFillRect(renderer, &sdl3.FRect{f32( i*WALL_STRIP_WIDTH ), f32((WINDOW_HEIGHT/2)-(wall_strip_height/2)), WALL_STRIP_WIDTH, f32(wall_strip_height)})
+  
     rayAngle += FOV_ANGLE / NUM_RAYS
   }
 }
@@ -231,6 +241,7 @@ main::proc() {
     render_circle(renderer, MINIMAP_SCALE_FACTOR*player.x, MINIMAP_SCALE_FACTOR*player.y, int(MINIMAP_SCALE_FACTOR*player.radius))
     sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
     cast_rays(renderer, &player)
+    sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
 }
