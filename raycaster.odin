@@ -27,6 +27,8 @@ NUM_RAYS :: WINDOW_WIDTH / WALL_STRIP_WIDTH
 WINDOW_WIDTH :: MAP_NUM_COLS*TILE_SIZE 
 WINDOW_HEIGHT :: MAP_NUM_ROWS*TILE_SIZE 
 
+MINIMAP_SCALE_FACTOR :: 0.2
+
 walls := [MAP_NUM_ROWS*MAP_NUM_COLS]u8{
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
   1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
@@ -162,7 +164,7 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
       res_y = vertical_wall_hit_y
     }
 
-    sdl3.RenderLine(renderer, f32(player.x), f32(player.y), f32(res_x), f32(res_y))
+    sdl3.RenderLine(renderer, f32(player.x)*MINIMAP_SCALE_FACTOR, f32(player.y)*MINIMAP_SCALE_FACTOR, f32(res_x)*MINIMAP_SCALE_FACTOR, f32(res_y)*MINIMAP_SCALE_FACTOR)
     rayAngle += FOV_ANGLE / NUM_RAYS
   }
 }
@@ -222,11 +224,11 @@ main::proc() {
         else {
           sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
         }
-        sdl3.RenderFillRect(renderer, &sdl3.FRect{f32(j*TILE_SIZE), f32(i*TILE_SIZE), TILE_SIZE, TILE_SIZE})
+        sdl3.RenderFillRect(renderer, &sdl3.FRect{MINIMAP_SCALE_FACTOR*f32(j*TILE_SIZE), MINIMAP_SCALE_FACTOR*f32(i*TILE_SIZE), MINIMAP_SCALE_FACTOR*TILE_SIZE, MINIMAP_SCALE_FACTOR*TILE_SIZE})
       }
     }
 
-    render_circle(renderer, player.x, player.y, int(player.radius))
+    render_circle(renderer, MINIMAP_SCALE_FACTOR*player.x, MINIMAP_SCALE_FACTOR*player.y, int(MINIMAP_SCALE_FACTOR*player.radius))
     sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
     cast_rays(renderer, &player)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
