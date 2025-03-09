@@ -86,8 +86,12 @@ render_circle::proc(renderer: ^sdl3.Renderer, center_x: f64, center_y: f64, radi
 }
 
 normalizeAngle::proc(angle: f64) -> f64 {
-  return angle - (2 * math.PI * math.floor(angle / (2*math.PI)))
+  newAngle := angle
+  for newAngle > 2 * math.PI do newAngle -= 2*math.PI
+  for newAngle < 0 do newAngle += 2*math.PI
+  return newAngle
 }
+
 
 cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
   rayAngle := player.rotationAngle - (FOV_ANGLE/2)
@@ -173,7 +177,10 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     distance_to_projection_plane := (WINDOW_WIDTH/2) / math.tan(f64(FOV_ANGLE/2))
     wall_strip_height := (TILE_SIZE/distance) * distance_to_projection_plane;
 
+    fmt.println(255*f32(wall_strip_height/WINDOW_HEIGHT))
+    sdl3.SetRenderDrawColorFloat(renderer, 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT), 255*f32(wall_strip_height/WINDOW_HEIGHT))
     sdl3.RenderFillRect(renderer, &sdl3.FRect{f32( i*WALL_STRIP_WIDTH ), f32((WINDOW_HEIGHT/2)-(wall_strip_height/2)), WALL_STRIP_WIDTH, f32(wall_strip_height)})
+    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
   
     rayAngle += FOV_ANGLE / NUM_RAYS
   }
@@ -241,7 +248,7 @@ main::proc() {
     render_circle(renderer, MINIMAP_SCALE_FACTOR*player.x, MINIMAP_SCALE_FACTOR*player.y, int(MINIMAP_SCALE_FACTOR*player.radius))
     sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
     cast_rays(renderer, &player)
-    sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
+    sdl3.SetRenderDrawColor(renderer, 128, 128, 128, 255)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
 }
