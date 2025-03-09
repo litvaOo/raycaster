@@ -238,22 +238,22 @@ main::proc() {
     }
 
     sdl3.RenderClear(renderer)
+    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
+    cast_rays(renderer, &player)
 
     for i in 0..<MAP_NUM_ROWS {
       for j in 0..<MAP_NUM_COLS {
         if (walls[i*MAP_NUM_COLS+j]) == 1 {
-          sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+          sdl3.SetRenderDrawColor(renderer, 0, 0, 0, 128)
         }
         else {
-          sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 255)
+          sdl3.SetRenderDrawColor(renderer, 255, 255, 255, 128)
         }
         sdl3.RenderFillRect(renderer, &sdl3.FRect{MINIMAP_SCALE_FACTOR*f32(j*TILE_SIZE), MINIMAP_SCALE_FACTOR*f32(i*TILE_SIZE), MINIMAP_SCALE_FACTOR*TILE_SIZE, MINIMAP_SCALE_FACTOR*TILE_SIZE})
       }
     }
-
     render_circle(renderer, MINIMAP_SCALE_FACTOR*player.x, MINIMAP_SCALE_FACTOR*player.y, int(MINIMAP_SCALE_FACTOR*player.radius))
-    sdl3.SetRenderDrawColor(renderer, 0, 0, 255, 255)
-    cast_rays(renderer, &player)
+
     sdl3.SetRenderDrawColor(renderer, 128, 128, 128, 255)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
   }
