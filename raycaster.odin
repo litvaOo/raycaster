@@ -174,6 +174,8 @@ cast_rays::proc(renderer: ^sdl3.Renderer, player: ^Player) {
     sdl3.RenderLine(renderer, f32(player.x)*MINIMAP_SCALE_FACTOR, f32(player.y)*MINIMAP_SCALE_FACTOR, f32(res_x)*MINIMAP_SCALE_FACTOR, f32(res_y)*MINIMAP_SCALE_FACTOR)
 
     // render actuall wall
+
+    distance *= math.cos(f64(newRay-player.rotationAngle))
     distance_to_projection_plane := (WINDOW_WIDTH/2) / math.tan(f64(FOV_ANGLE/2))
     wall_strip_height := (TILE_SIZE/distance) * distance_to_projection_plane;
 
