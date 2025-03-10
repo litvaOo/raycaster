@@ -18,14 +18,16 @@ Player::struct {
 }
 
 
-TILE_SIZE :: 64
+TILE_SIZE :: 128
 MAP_NUM_ROWS :: 11
 MAP_NUM_COLS :: 15
 FOV_ANGLE :: 60 * (math.PI/180)
 WALL_STRIP_WIDTH :: 1
-NUM_RAYS :: WINDOW_WIDTH / WALL_STRIP_WIDTH
 WINDOW_WIDTH :: MAP_NUM_COLS*TILE_SIZE 
 WINDOW_HEIGHT :: MAP_NUM_ROWS*TILE_SIZE 
+NUM_RAYS :: WINDOW_WIDTH / WALL_STRIP_WIDTH
+
+FRAME_RATE :: f64(120)
 
 MINIMAP_SCALE_FACTOR :: 0.2
 
@@ -206,7 +208,10 @@ main::proc() {
   player := Player{WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 16, 0, 0, math.PI/2, 2, 2 * (math.PI/180)}
 
 
+  delta_time: f64
+  last_frame_ticks := u64(0)
   for {
+    delta_time = f64( (sdl3.GetTicks() - last_frame_ticks)) / 1000.0 
     event: sdl3.Event
     for sdl3.PollEvent(&event) {
       #partial switch event.type {
@@ -226,6 +231,7 @@ main::proc() {
         if event.key.scancode == sdl3.Scancode.RIGHT do player.turnDirection = 0
       }
     }
+    if delta_time < (1000/FRAME_RATE) do sdl3.Delay(u32((1000/FRAME_RATE)-delta_time))
     player.rotationAngle += player.turnDirection * player.rotationSpeed
     moveStep := f64(player.walkDirection * player.moveSpeed)
 
@@ -256,5 +262,6 @@ main::proc() {
 
     sdl3.SetRenderDrawColor(renderer, 128, 128, 128, 255)
     assert(sdl3.RenderPresent(renderer) == true, strings.clone_from_cstring(sdl3.GetError()))
+    last_frame_ticks = sdl3.GetTicks()
   }
 }
