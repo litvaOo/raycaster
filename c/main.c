@@ -4,9 +4,11 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_oldnames.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 #include <math.h>
@@ -16,7 +18,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#define FRAME_RATE 60
+#define FRAME_RATE 120
 
 #define PI 3.14159265
 #define TWO_PI 6.28318530
@@ -69,6 +71,7 @@ Player player = {
 
 Ray *rays;
 
+Uint32 *color_buffer;
 const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -106,6 +109,12 @@ SDL_Renderer *initializeRenderer(SDL_Window *window) {
   }
   SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
   return renderer;
+}
+
+void clear_color_buffer(Uint32 color) {
+  for (int x = 0; x < WINDOW_WIDTH; x++)
+    for (int y = 0; y < WINDOW_HEIGHT; y++)
+      color_buffer[y * (int)WINDOW_WIDTH + x] = color;
 }
 
 void render_map(SDL_Renderer *renderer) {
@@ -163,12 +172,20 @@ void render_walls(SDL_Renderer *renderer) {
   SDL_SetRenderColorScale(renderer, 1);
 }
 
-void render(SDL_Renderer *renderer) {
+void render_color_buffer(SDL_Renderer *renderer, SDL_Texture *texture) {
+  SDL_UpdateTexture(texture, NULL, color_buffer, WINDOW_WIDTH * sizeof(Uint32));
+  SDL_RenderTexture(renderer, texture, NULL, NULL);
+}
+
+void render(SDL_Renderer *renderer, SDL_Texture *texture) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
 
+  render_color_buffer(renderer, texture);
+  clear_color_buffer(0xFF00EE30);
+
   SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-  render_walls(renderer);
+  // render_walls(renderer);
   render_map(renderer);
   render_player(renderer);
   SDL_RenderPresent(renderer);
@@ -203,7 +220,9 @@ void cast_all_rays(void) {
     float next_horizontal_touch_x = horizontal_x_intercept;
     float next_horizontal_touch_y = horizontal_y_intercept;
 
-    float horizontal_wall_hit_x, horizontal_wall_hit_y;
+    int horizontal_wall_hit_x, horizontal_wall_hit_y;
+
+    int horizontal_wall_id_x, horizontal_wall_id_y;
 
     while (next_horizontal_touch_x >= 0 &&
            next_horizontal_touch_x <= WINDOW_WIDTH &&
@@ -214,6 +233,9 @@ void cast_all_rays(void) {
           1) {
         horizontal_wall_hit_x = next_horizontal_touch_x;
         horizontal_wall_hit_y = next_horizontal_touch_y;
+        horizontal_wall_id_x =
+            (int)((next_horizontal_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
+        horizontal_wall_id_y = (int)(next_horizontal_touch_x / TILE_SIZE);
         break;
       } else {
         next_horizontal_touch_x += horizontal_x_step;
@@ -235,8 +257,8 @@ void cast_all_rays(void) {
     float next_vertical_touch_x = vertical_x_intercept;
     float next_vertical_touch_y = vertical_y_intercept;
 
-    float vertical_wall_hit_x;
-    float vertical_wall_hit_y;
+    float vertical_wall_hit_x, vertical_wall_hit_y;
+    int vertical_wall_id_x, vertical_wall_id_y;
 
     while ((next_vertical_touch_x >= 0) &&
            (next_vertical_touch_x <= WINDOW_WIDTH) &&
@@ -247,6 +269,9 @@ void cast_all_rays(void) {
                     TILE_SIZE)] == 1) {
         vertical_wall_hit_x = next_vertical_touch_x;
         vertical_wall_hit_y = next_vertical_touch_y;
+        vertical_wall_id_x =
+            (int)((next_vertical_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
+        vertical_wall_id_y = (int)(next_vertical_touch_x / TILE_SIZE);
         break;
       } else {
         next_vertical_touch_x += vertical_x_step;
@@ -261,21 +286,23 @@ void cast_all_rays(void) {
                                        pow(player.y - vertical_wall_hit_y, 2));
 
     float res_x, res_y, distance;
-
+    int wallHitContent;
     bool hit_vertical = false;
     if (horizontal_hit_distance < vertical_hit_distance) {
       res_x = horizontal_wall_hit_x;
       res_y = horizontal_wall_hit_y;
       distance = horizontal_hit_distance;
+      wallHitContent = map[horizontal_wall_id_y][horizontal_wall_id_x];
     } else {
       res_x = vertical_wall_hit_x;
       res_y = vertical_wall_hit_y;
       distance = vertical_hit_distance;
+      wallHitContent = map[vertical_wall_id_y][vertical_wall_id_x];
       hit_vertical = true;
     }
 
     rays[ray_id] = (Ray){
-        newRay,       res_x,      res_y,     distance,    0,
+        newRay,       res_x,      res_y,     distance,    wallHitContent,
         hit_vertical, !isRayDown, isRayDown, !isRayRight, isRayRight,
     };
     ray_angle += FOV_ANGLE / NUM_RAYS;
@@ -300,6 +327,14 @@ int main(void) {
   SDL_Renderer *renderer = initializeRenderer(window);
   rays = mmap(NULL, sizeof(Ray) * NUM_RAYS, PROT_READ | PROT_WRITE,
               MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+  color_buffer =
+      mmap(NULL, sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT,
+           PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+  SDL_Texture *color_buffer_texture = SDL_CreateTexture(
+      renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+      WINDOW_WIDTH, WINDOW_HEIGHT);
+
   unsigned int last_frame_ticks = 0;
   while (true) {
     float delta_time = (SDL_GetTicks() - last_frame_ticks) / 1000.0;
@@ -342,12 +377,16 @@ int main(void) {
         break;
       }
     case SDL_EVENT_QUIT:
+      munmap(color_buffer,
+             sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT);
+      munmap(rays, sizeof(Ray) * NUM_RAYS);
+      SDL_DestroyTexture(color_buffer_texture);
       SDL_DestroyRenderer(renderer);
       SDL_DestroyWindow(window);
       SDL_Quit();
       return 0;
     }
     update();
-    render(renderer);
+    render(renderer, color_buffer_texture);
   }
 }
