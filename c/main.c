@@ -6,8 +6,10 @@
 #include <SDL3/SDL_oldnames.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
+#include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,8 +45,8 @@ struct Player {
   float turnSpeed;
 };
 Player player = {
-    WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 5, 5, 0, 0, PI / 2, 100,
-    45 * (PI / 180),
+    WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, TILE_SIZE, TILE_SIZE, 0, 0, PI / 2, 10,
+    5 * (PI / 180),
 };
 
 const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
@@ -100,13 +102,39 @@ void render_map(SDL_Renderer *renderer) {
   }
 }
 
+void render_player(SDL_Renderer *renderer) {
+  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+  SDL_FRect player_rect = {player.x * MINIMAP_SCALE_FACTOR,
+                           player.y * MINIMAP_SCALE_FACTOR,
+                           player.width * MINIMAP_SCALE_FACTOR,
+                           player.height * MINIMAP_SCALE_FACTOR};
+  SDL_RenderFillRect(renderer, &player_rect);
+  SDL_RenderLine(
+      renderer, player.x * MINIMAP_SCALE_FACTOR,
+      player.y * MINIMAP_SCALE_FACTOR,
+      player.x * MINIMAP_SCALE_FACTOR + cos(player.rotationAngle) * 40,
+      player.y * MINIMAP_SCALE_FACTOR + sin(player.rotationAngle) * 40);
+}
 void render(SDL_Renderer *renderer) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
   render_map(renderer);
+  render_player(renderer);
   SDL_RenderPresent(renderer);
+}
+
+void update(void) {
+  player.rotationAngle += player.turnDirection * player.turnSpeed;
+  float move_step = player.walkDirection * player.walkSpeed;
+
+  float new_x = player.x + move_step * cos(player.rotationAngle);
+  float new_y = player.y + move_step * sin(player.rotationAngle);
+  if (map[(int)(new_y / TILE_SIZE)][(int)(new_x) / TILE_SIZE] == 0) {
+    player.x = new_x;
+    player.y = new_y;
+  }
 }
 
 int main(void) {
@@ -122,17 +150,45 @@ int main(void) {
     SDL_Event event;
     SDL_PollEvent(&event);
     switch (event.type) {
-    case SDL_EVENT_KEY_DOWN:
-      if (event.key.scancode != SDL_SCANCODE_ESCAPE)
+    case SDL_EVENT_KEY_UP:
+      switch (event.key.scancode) {
+      case SDL_SCANCODE_UP:
+      case SDL_SCANCODE_DOWN:
+        player.walkDirection = 0;
         break;
+      case SDL_SCANCODE_LEFT:
+      case SDL_SCANCODE_RIGHT:
+        player.turnDirection = 0;
+      default:
+        break;
+      }
+      break;
+    case SDL_EVENT_KEY_DOWN:
+      if (event.key.scancode != SDL_SCANCODE_ESCAPE) {
+        switch (event.key.scancode) {
+        case SDL_SCANCODE_UP:
+          player.walkDirection = 1;
+          break;
+        case SDL_SCANCODE_DOWN:
+          player.walkDirection = -1;
+          break;
+        case SDL_SCANCODE_LEFT:
+          player.turnDirection = 1;
+          break;
+        case SDL_SCANCODE_RIGHT:
+          player.turnDirection = -1;
+        default:
+          break;
+        }
+        break;
+      }
     case SDL_EVENT_QUIT:
       SDL_DestroyRenderer(renderer);
       SDL_DestroyWindow(window);
       SDL_Quit();
       return 0;
     }
-    player.x++;
-    player.y++;
+    update();
     render(renderer);
   }
 }
