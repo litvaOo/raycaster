@@ -11,6 +11,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <float.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -116,7 +117,6 @@ SDL_Renderer *initializeRenderer(SDL_Window *window) {
   return renderer;
 }
 
-// void render_3D_projections(SDL_Texture *texture) {
 void render_3D_projections(void) {
   for (int i = 0; i < NUM_RAYS; i++) {
     float distance =
@@ -162,8 +162,8 @@ void render_map(SDL_Renderer *renderer) {
       SDL_RenderFillRect(renderer, &map_tile);
     }
   }
+  SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
   for (int i = 0; i < NUM_RAYS; i++) {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
     SDL_RenderLine(renderer, player.x * MINIMAP_SCALE_FACTOR,
                    player.y * MINIMAP_SCALE_FACTOR,
                    rays[i].wallHitX * MINIMAP_SCALE_FACTOR,
@@ -173,36 +173,11 @@ void render_map(SDL_Renderer *renderer) {
 
 void render_player(SDL_Renderer *renderer) {
   SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-  SDL_FRect player_rect = {player.x * MINIMAP_SCALE_FACTOR,
-                           player.y * MINIMAP_SCALE_FACTOR,
-                           player.width * MINIMAP_SCALE_FACTOR,
-                           player.height * MINIMAP_SCALE_FACTOR};
-  SDL_RenderFillRect(renderer, &player_rect);
   SDL_RenderLine(
       renderer, player.x * MINIMAP_SCALE_FACTOR,
       player.y * MINIMAP_SCALE_FACTOR,
       player.x * MINIMAP_SCALE_FACTOR + cos(player.rotationAngle) * 40,
       player.y * MINIMAP_SCALE_FACTOR + sin(player.rotationAngle) * 40);
-}
-
-void render_walls(SDL_Renderer *renderer) {
-  for (int i = 0; i < NUM_RAYS; i++) {
-    float distance =
-        rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle);
-    float distance_to_projection_plane =
-        (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2);
-    float wall_strip_height =
-        (TILE_SIZE / distance) * distance_to_projection_plane;
-
-    float shade = wall_strip_height / WINDOW_HEIGHT;
-    SDL_SetRenderColorScale(renderer, 1 * shade);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderFillRect(renderer,
-                       &(SDL_FRect){i * WALL_STRIP_WIDTH,
-                                    (WINDOW_HEIGHT / 2 - wall_strip_height / 2),
-                                    WALL_STRIP_WIDTH, wall_strip_height});
-  }
-  SDL_SetRenderColorScale(renderer, 1);
 }
 
 void render_color_buffer(SDL_Renderer *renderer, SDL_Texture *texture) {
@@ -218,8 +193,6 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
   clear_color_buffer(0xFF00EE30);
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-  // render_walls(renderer);
-  // render_3D_projections(texture);
   render_3D_projections();
   render_map(renderer);
   render_player(renderer);
@@ -240,10 +213,10 @@ void cast_all_rays(void) {
     float newRay = normalizeAngle(ray_angle);
     bool isRayDown = newRay > 0 && newRay < M_PI;
     bool isRayRight = newRay < 0.5 * M_PI || newRay > 1.5 * M_PI;
-
+    bool hit_horizonal, hit_vertical = false;
     // horizontal interception
     float horizontal_y_intercept =
-        ((int)(player.y / TILE_SIZE)) * TILE_SIZE + (isRayDown ? TILE_SIZE : 0);
+        floor(player.y / TILE_SIZE) * TILE_SIZE + (isRayDown ? TILE_SIZE : 0);
     float horizontal_x_intercept =
         player.x + (horizontal_y_intercept - player.y) / tan(newRay);
 
@@ -255,22 +228,23 @@ void cast_all_rays(void) {
     float next_horizontal_touch_x = horizontal_x_intercept;
     float next_horizontal_touch_y = horizontal_y_intercept;
 
-    int horizontal_wall_hit_x, horizontal_wall_hit_y;
+    float horizontal_wall_hit_x = 0, horizontal_wall_hit_y = 0;
 
-    int horizontal_wall_id_x, horizontal_wall_id_y;
+    int horizontal_wall_id_x = 0, horizontal_wall_id_y = 0;
 
     while (next_horizontal_touch_x >= 0 &&
            next_horizontal_touch_x <= WINDOW_WIDTH &&
            next_horizontal_touch_y >= 0 &&
            next_horizontal_touch_y <= WINDOW_HEIGHT) {
-      if (map[(int)((next_horizontal_touch_y - (!isRayDown ? 1 : 0)) /
-                    TILE_SIZE)][(int)(next_horizontal_touch_x / TILE_SIZE)] ==
-          1) {
+      if (map[(int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
+                         TILE_SIZE)]
+             [(int)floor(next_horizontal_touch_x / TILE_SIZE)] == 1) {
         horizontal_wall_hit_x = next_horizontal_touch_x;
         horizontal_wall_hit_y = next_horizontal_touch_y;
         horizontal_wall_id_x =
             (int)((next_horizontal_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
         horizontal_wall_id_y = (int)(next_horizontal_touch_x / TILE_SIZE);
+        hit_horizonal = true;
         break;
       } else {
         next_horizontal_touch_x += horizontal_x_step;
@@ -280,7 +254,7 @@ void cast_all_rays(void) {
 
     // vertical_interception
     float vertical_x_intercept =
-        (int)(player.x / TILE_SIZE) * TILE_SIZE + (isRayRight ? TILE_SIZE : 0);
+        floor(player.x / TILE_SIZE) * TILE_SIZE + (isRayRight ? TILE_SIZE : 0);
     float vertical_y_intercept =
         player.y + (vertical_x_intercept - player.x) * tan(newRay);
 
@@ -292,21 +266,23 @@ void cast_all_rays(void) {
     float next_vertical_touch_x = vertical_x_intercept;
     float next_vertical_touch_y = vertical_y_intercept;
 
-    float vertical_wall_hit_x, vertical_wall_hit_y;
-    int vertical_wall_id_x, vertical_wall_id_y;
+    float vertical_wall_hit_x = 0;
+    float vertical_wall_hit_y = 0;
+    int vertical_wall_id_x, vertical_wall_id_y = 0;
 
     while ((next_vertical_touch_x >= 0) &&
            (next_vertical_touch_x <= WINDOW_WIDTH) &&
            (next_vertical_touch_y >= 0) &&
            (next_vertical_touch_y <= WINDOW_HEIGHT)) {
       if (map[(int)(next_vertical_touch_y / TILE_SIZE)]
-             [(int)((next_vertical_touch_x - (!isRayRight ? 1 : 0)) /
+             [(int)((next_vertical_touch_x + (!isRayRight ? -1 : 0)) /
                     TILE_SIZE)] == 1) {
         vertical_wall_hit_x = next_vertical_touch_x;
         vertical_wall_hit_y = next_vertical_touch_y;
         vertical_wall_id_x =
             (int)((next_vertical_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
         vertical_wall_id_y = (int)(next_vertical_touch_x / TILE_SIZE);
+        hit_vertical = true;
         break;
       } else {
         next_vertical_touch_x += vertical_x_step;
@@ -315,15 +291,17 @@ void cast_all_rays(void) {
     }
 
     float horizontal_hit_distance =
-        sqrt(pow(player.x - horizontal_wall_hit_x, 2) +
-             pow(player.y - horizontal_wall_hit_y, 2));
-    float vertical_hit_distance = sqrt(pow(player.x - vertical_wall_hit_x, 2) +
-                                       pow(player.y - vertical_wall_hit_y, 2));
+        hit_horizonal ? sqrt(pow(player.x - horizontal_wall_hit_x, 2) +
+                             pow(player.y - horizontal_wall_hit_y, 2))
+                      : FLT_MAX;
+    float vertical_hit_distance =
+        hit_vertical ? sqrt(pow(player.x - vertical_wall_hit_x, 2) +
+                            pow(player.y - vertical_wall_hit_y, 2))
+                     : FLT_MAX;
 
     float res_x, res_y, distance;
     int wallHitContent;
-    bool hit_vertical = false;
-    if (horizontal_hit_distance < vertical_hit_distance) {
+    if (horizontal_hit_distance <= vertical_hit_distance) {
       res_x = horizontal_wall_hit_x;
       res_y = horizontal_wall_hit_y;
       distance = horizontal_hit_distance;
@@ -333,7 +311,6 @@ void cast_all_rays(void) {
       res_y = vertical_wall_hit_y;
       distance = vertical_hit_distance;
       wallHitContent = map[vertical_wall_id_y][vertical_wall_id_x];
-      hit_vertical = true;
     }
 
     rays[ray_id] = (Ray){
