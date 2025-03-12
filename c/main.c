@@ -1,3 +1,4 @@
+#include "textures.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_blendmode.h>
 #include <SDL3/SDL_error.h>
@@ -27,9 +28,10 @@
 #define WINDOW_WIDTH (MAP_NUM_COLS * TILE_SIZE)
 #define WINDOW_HEIGHT (MAP_NUM_ROWS * TILE_SIZE)
 #define WALL_STRIP_WIDTH 1
-
+#define TEXTURE_WIDTH 64
+#define TEXTURE_HEIGHT 64
 #define MINIMAP_SCALE_FACTOR 0.3
-
+#define NUM_TEXTURES 8
 #define FOV_ANGLE (60 * (M_PI / 180))
 
 #define NUM_RAYS WINDOW_WIDTH
@@ -55,7 +57,7 @@ struct Ray {
   float wallHitX;
   float wallHitY;
   float distance;
-  float wallHitContent;
+  int wallHitContent;
   bool wasHitVertical;
   bool isRayFacingUp;
   bool isRayFacingDown;
@@ -80,18 +82,21 @@ Ray *rays;
 Uint32 *color_buffer;
 const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}};
+    {1, 0, 0, 0, 2, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}};
+
+Uint32 *wall_texture;
+Uint32 *textures[8];
 
 SDL_Window *initializeWindow() {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == false) {
@@ -126,22 +131,32 @@ void render_3D_projections(void) {
     float wall_strip_height =
         (TILE_SIZE / distance) * distance_to_projection_plane;
 
-    float shade = wall_strip_height / WINDOW_HEIGHT;
-    int y = WINDOW_HEIGHT / 2 - wall_strip_height / 2;
-    if (y < 0)
-      y = 0;
-    int y_end = y + wall_strip_height;
+    // float shade = wall_strip_height / WINDOW_HEIGHT;
+    int y_start = WINDOW_HEIGHT / 2 - wall_strip_height / 2;
+    if (y_start < 0)
+      y_start = 0;
+    int y_end = y_start + wall_strip_height;
     if (y_end >= WINDOW_HEIGHT)
       y_end = WINDOW_HEIGHT - 1;
+    int texture_offset_x = rays[i].wasHitVertical
+                               ? (int)(rays[i].wallHitY) % (int)TILE_SIZE
+                               : (int)(rays[i].wallHitX) % (int)TILE_SIZE;
 
     for (int x = i * WALL_STRIP_WIDTH;
          x < i * WALL_STRIP_WIDTH + WALL_STRIP_WIDTH; x++) {
-      for (int j = 0; j < y; j++) {
+      for (int j = 0; j < y_start; j++) {
         color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFFA9A9A9;
       }
-      for (; y < y_end; y++) {
-        color_buffer[y * (int)WINDOW_WIDTH + x] =
-            0x00FF0000 + ((int)(0xFF000000 * shade) & (0xFF000000));
+      for (int y = y_start; y < y_end; y++) {
+        int texture_offset_y =
+            (y + (wall_strip_height / 2 - WINDOW_HEIGHT / 2)) *
+            ((float)TEXTURE_HEIGHT / wall_strip_height);
+        Uint32 texel_color =
+            textures[rays[i].wallHitContent]
+                    [TEXTURE_WIDTH * texture_offset_y + texture_offset_x];
+        // color_buffer[y * (int)WINDOW_WIDTH + x] =
+        //     texel_color + ((int)(0xFF000000 * shade) & (0xFF000000));
+        color_buffer[y * (int)WINDOW_WIDTH + x] = texel_color;
       }
       for (int j = y_end; j < WINDOW_HEIGHT; j++) {
         color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFF2F4F4F;
@@ -198,7 +213,6 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
   render_color_buffer(renderer, texture);
   clear_color_buffer(0xFF00EE30);
 
-  SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
   render_3D_projections();
   render_map(renderer);
   render_player(renderer);
@@ -206,10 +220,10 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
 }
 
 float normalizeAngle(float angle) {
-  while (angle >= 2 * M_PI)
-    angle -= 2 * M_PI;
-  while (angle < 0)
-    angle += 2 * M_PI;
+  angle = remainder(angle, M_PI * 2);
+  if (angle < 0) {
+    angle = M_PI * 2 + angle;
+  }
   return angle;
 }
 
@@ -247,9 +261,9 @@ void cast_all_rays(void) {
              [(int)floor(next_horizontal_touch_x / TILE_SIZE)] == 1) {
         horizontal_wall_hit_x = next_horizontal_touch_x;
         horizontal_wall_hit_y = next_horizontal_touch_y;
-        horizontal_wall_id_x =
+        horizontal_wall_id_y =
             (int)((next_horizontal_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
-        horizontal_wall_id_y = (int)(next_horizontal_touch_x / TILE_SIZE);
+        horizontal_wall_id_x = (int)(next_horizontal_touch_x / TILE_SIZE);
         hit_horizonal = true;
         break;
       } else {
@@ -286,8 +300,8 @@ void cast_all_rays(void) {
         vertical_wall_hit_x = next_vertical_touch_x;
         vertical_wall_hit_y = next_vertical_touch_y;
         vertical_wall_id_x =
-            (int)((next_vertical_touch_y - (!isRayDown ? 1 : 0)) / TILE_SIZE);
-        vertical_wall_id_y = (int)(next_vertical_touch_x / TILE_SIZE);
+            (int)((next_vertical_touch_x - (!isRayRight ? 1 : 0)) / TILE_SIZE);
+        vertical_wall_id_y = (int)(next_vertical_touch_y / TILE_SIZE);
         hit_vertical = true;
         break;
       } else {
@@ -306,7 +320,8 @@ void cast_all_rays(void) {
                      : FLT_MAX;
 
     float res_x, res_y, distance;
-    int wallHitContent;
+    int wallHitContent = 0;
+    bool end_hit_vertical = false;
     if (horizontal_hit_distance <= vertical_hit_distance) {
       res_x = horizontal_wall_hit_x;
       res_y = horizontal_wall_hit_y;
@@ -317,11 +332,12 @@ void cast_all_rays(void) {
       res_y = vertical_wall_hit_y;
       distance = vertical_hit_distance;
       wallHitContent = map[vertical_wall_id_y][vertical_wall_id_x];
+      end_hit_vertical = true;
     }
 
     rays[ray_id] = (Ray){
-        newRay,       res_x,      res_y,     distance,    wallHitContent,
-        hit_vertical, !isRayDown, isRayDown, !isRayRight, isRayRight,
+        newRay,           res_x,      res_y,     distance,    wallHitContent,
+        end_hit_vertical, !isRayDown, isRayDown, !isRayRight, isRayRight,
     };
     ray_angle += FOV_ANGLE / NUM_RAYS;
   }
@@ -348,6 +364,15 @@ int main(void) {
   color_buffer =
       mmap(NULL, sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT,
            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+  textures[0] = (Uint32 *)REDBRICK_TEXTURE;
+  textures[1] = (Uint32 *)PURPLESTONE_TEXTURE;
+  textures[2] = (Uint32 *)MOSSYSTONE_TEXTURE;
+  textures[3] = (Uint32 *)GRAYSTONE_TEXTURE;
+  textures[4] = (Uint32 *)COLORSTONE_TEXTURE;
+  textures[5] = (Uint32 *)BLUESTONE_TEXTURE;
+  textures[6] = (Uint32 *)WOOD_TEXTURE;
+  textures[7] = (Uint32 *)EAGLE_TEXTURE;
 
   SDL_Texture *color_buffer_texture = SDL_CreateTexture(
       renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
@@ -398,6 +423,7 @@ int main(void) {
       munmap(color_buffer,
              sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT);
       munmap(rays, sizeof(Ray) * NUM_RAYS);
+      munmap(wall_texture, TEXTURE_WIDTH * TEXTURE_HEIGHT * sizeof(Uint32));
       SDL_DestroyTexture(color_buffer_texture);
       SDL_DestroyRenderer(renderer);
       SDL_DestroyWindow(window);
