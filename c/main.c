@@ -72,7 +72,7 @@ Player player = {
     TILE_SIZE,
     0,
     0,
-    M_PI / 2,
+    M_PI / 5,
     1,
     1 * (M_PI / 180),
 };
@@ -95,7 +95,6 @@ const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}};
 
-Uint32 *wall_texture;
 Uint32 *textures[8];
 
 SDL_Window *initializeWindow() {
@@ -122,7 +121,7 @@ SDL_Renderer *initializeRenderer(SDL_Window *window) {
   return renderer;
 }
 
-void render_3D_projections(void) {
+void render_3D_projections() {
   for (int i = 0; i < NUM_RAYS; i++) {
     float distance =
         rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle);
@@ -131,7 +130,7 @@ void render_3D_projections(void) {
     float wall_strip_height =
         (TILE_SIZE / distance) * distance_to_projection_plane;
 
-    // float shade = wall_strip_height / WINDOW_HEIGHT;
+    float shade = wall_strip_height / WINDOW_HEIGHT;
     int y_start = WINDOW_HEIGHT / 2 - wall_strip_height / 2;
     if (y_start < 0)
       y_start = 0;
@@ -152,11 +151,10 @@ void render_3D_projections(void) {
             (y + (wall_strip_height / 2 - WINDOW_HEIGHT / 2)) *
             ((float)TEXTURE_HEIGHT / wall_strip_height);
         Uint32 texel_color =
-            textures[rays[i].wallHitContent]
+            textures[rays[i].wallHitContent-1]
                     [TEXTURE_WIDTH * texture_offset_y + texture_offset_x];
-        // color_buffer[y * (int)WINDOW_WIDTH + x] =
-        //     texel_color + ((int)(0xFF000000 * shade) & (0xFF000000));
-        color_buffer[y * (int)WINDOW_WIDTH + x] = texel_color;
+        color_buffer[y * (int)WINDOW_WIDTH + x] =
+            texel_color + ((int)(0xFF000000 * shade) & (0xFF000000));
       }
       for (int j = y_end; j < WINDOW_HEIGHT; j++) {
         color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFF2F4F4F;
@@ -213,9 +211,9 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
   render_color_buffer(renderer, texture);
   clear_color_buffer(0xFF00EE30);
 
-  render_3D_projections();
   render_map(renderer);
   render_player(renderer);
+  render_3D_projections();
   SDL_RenderPresent(renderer);
 }
 
@@ -234,6 +232,7 @@ void cast_all_rays(void) {
     bool isRayDown = newRay > 0 && newRay < M_PI;
     bool isRayRight = newRay < 0.5 * M_PI || newRay > 1.5 * M_PI;
     bool hit_horizonal, hit_vertical = false;
+
     // horizontal interception
     float horizontal_y_intercept =
         floor(player.y / TILE_SIZE) * TILE_SIZE + (isRayDown ? TILE_SIZE : 0);
@@ -258,7 +257,7 @@ void cast_all_rays(void) {
            next_horizontal_touch_y <= WINDOW_HEIGHT) {
       if (map[(int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
                          TILE_SIZE)]
-             [(int)floor(next_horizontal_touch_x / TILE_SIZE)] == 1) {
+             [(int)floor(next_horizontal_touch_x / TILE_SIZE)] != 0) {
         horizontal_wall_hit_x = next_horizontal_touch_x;
         horizontal_wall_hit_y = next_horizontal_touch_y;
         horizontal_wall_id_y =
@@ -296,7 +295,7 @@ void cast_all_rays(void) {
            (next_vertical_touch_y <= WINDOW_HEIGHT)) {
       if (map[(int)(next_vertical_touch_y / TILE_SIZE)]
              [(int)((next_vertical_touch_x + (!isRayRight ? -1 : 0)) /
-                    TILE_SIZE)] == 1) {
+                    TILE_SIZE)] != 0) {
         vertical_wall_hit_x = next_vertical_touch_x;
         vertical_wall_hit_y = next_vertical_touch_y;
         vertical_wall_id_x =
@@ -319,7 +318,7 @@ void cast_all_rays(void) {
                             pow(player.y - vertical_wall_hit_y, 2))
                      : FLT_MAX;
 
-    float res_x, res_y, distance;
+    float res_x, res_y, distance = 0;
     int wallHitContent = 0;
     bool end_hit_vertical = false;
     if (horizontal_hit_distance <= vertical_hit_distance) {
@@ -423,7 +422,6 @@ int main(void) {
       munmap(color_buffer,
              sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT);
       munmap(rays, sizeof(Ray) * NUM_RAYS);
-      munmap(wall_texture, TEXTURE_WIDTH * TEXTURE_HEIGHT * sizeof(Uint32));
       SDL_DestroyTexture(color_buffer_texture);
       SDL_DestroyRenderer(renderer);
       SDL_DestroyWindow(window);
