@@ -20,8 +20,6 @@
 
 #define FRAME_RATE 120
 
-#define PI 3.14159265
-#define TWO_PI 6.28318530
 #define TILE_SIZE 64.0
 #define MAP_NUM_ROWS 13
 #define MAP_NUM_COLS 20
@@ -31,7 +29,7 @@
 
 #define MINIMAP_SCALE_FACTOR 0.3
 
-#define FOV_ANGLE (60 * (PI / 180))
+#define FOV_ANGLE (60 * (M_PI / 180))
 
 #define NUM_RAYS WINDOW_WIDTH
 
@@ -65,8 +63,15 @@ struct Ray {
 };
 
 Player player = {
-    WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, TILE_SIZE, TILE_SIZE, 0, 0, PI / 2, 1,
-    1 * (PI / 180),
+    WINDOW_WIDTH / 2,
+    WINDOW_HEIGHT / 2,
+    TILE_SIZE,
+    TILE_SIZE,
+    0,
+    0,
+    M_PI / 2,
+    1,
+    1 * (M_PI / 180),
 };
 
 Ray *rays;
@@ -233,8 +238,8 @@ void cast_all_rays(void) {
   float ray_angle = player.rotationAngle - (FOV_ANGLE / 2);
   for (int ray_id = 0; ray_id < NUM_RAYS; ray_id++) {
     float newRay = normalizeAngle(ray_angle);
-    bool isRayDown = newRay > 0 && newRay < PI;
-    bool isRayRight = newRay < 0.5 * PI || newRay > 1.5 * PI;
+    bool isRayDown = newRay > 0 && newRay < M_PI;
+    bool isRayRight = newRay < 0.5 * M_PI || newRay > 1.5 * M_PI;
 
     // horizontal interception
     float horizontal_y_intercept =
