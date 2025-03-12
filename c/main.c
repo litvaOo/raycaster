@@ -111,6 +111,32 @@ SDL_Renderer *initializeRenderer(SDL_Window *window) {
   return renderer;
 }
 
+// void render_3D_projections(SDL_Texture *texture) {
+void render_3D_projections(void) {
+  for (int i = 0; i < NUM_RAYS; i++) {
+    float distance =
+        rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle);
+    float distance_to_projection_plane =
+        (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2);
+    float wall_strip_height =
+        (TILE_SIZE / distance) * distance_to_projection_plane;
+
+    int y = WINDOW_HEIGHT / 2 - wall_strip_height / 2;
+    if (y < 0)
+      y = 0;
+    int y_end = y + wall_strip_height;
+    if (y_end >= WINDOW_HEIGHT)
+      y_end = WINDOW_HEIGHT - 1;
+
+    for (int x = i * WALL_STRIP_WIDTH;
+         x < i * WALL_STRIP_WIDTH + WALL_STRIP_WIDTH; x++) {
+      for (; y < y_end; y++) {
+        color_buffer[y * (int)WINDOW_WIDTH + x] = 0xFFFF0000;
+      }
+    }
+  }
+}
+
 void clear_color_buffer(Uint32 color) {
   for (int x = 0; x < WINDOW_WIDTH; x++)
     for (int y = 0; y < WINDOW_HEIGHT; y++)
@@ -186,6 +212,8 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
   // render_walls(renderer);
+  // render_3D_projections(texture);
+  render_3D_projections();
   render_map(renderer);
   render_player(renderer);
   SDL_RenderPresent(renderer);
