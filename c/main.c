@@ -121,6 +121,7 @@ void render_3D_projections(void) {
     float wall_strip_height =
         (TILE_SIZE / distance) * distance_to_projection_plane;
 
+    float shade = wall_strip_height / WINDOW_HEIGHT;
     int y = WINDOW_HEIGHT / 2 - wall_strip_height / 2;
     if (y < 0)
       y = 0;
@@ -131,7 +132,8 @@ void render_3D_projections(void) {
     for (int x = i * WALL_STRIP_WIDTH;
          x < i * WALL_STRIP_WIDTH + WALL_STRIP_WIDTH; x++) {
       for (; y < y_end; y++) {
-        color_buffer[y * (int)WINDOW_WIDTH + x] = 0xFFFF0000;
+        color_buffer[y * (int)WINDOW_WIDTH + x] =
+            0x00FF0000 + ((int)(0xFF000000 * shade) & (0xFF000000));
       }
     }
   }
@@ -220,10 +222,10 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
 }
 
 float normalizeAngle(float angle) {
-  angle = fmod(angle, TWO_PI);
-  if (angle < 0) {
-    angle = TWO_PI + angle;
-  }
+  while (angle >= 2 * M_PI)
+    angle -= 2 * M_PI;
+  while (angle < 0)
+    angle += 2 * M_PI;
   return angle;
 }
 
