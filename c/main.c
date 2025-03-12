@@ -136,9 +136,15 @@ void render_3D_projections(void) {
 
     for (int x = i * WALL_STRIP_WIDTH;
          x < i * WALL_STRIP_WIDTH + WALL_STRIP_WIDTH; x++) {
+      for (int j = 0; j < y; j++) {
+        color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFFA9A9A9;
+      }
       for (; y < y_end; y++) {
         color_buffer[y * (int)WINDOW_WIDTH + x] =
             0x00FF0000 + ((int)(0xFF000000 * shade) & (0xFF000000));
+      }
+      for (int j = y_end; j < WINDOW_HEIGHT; j++) {
+        color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFF2F4F4F;
       }
     }
   }
