@@ -1,4 +1,4 @@
-#include "textures.h"
+#include "upng.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_blendmode.h>
 #include <SDL3/SDL_error.h>
@@ -12,9 +12,11 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <assert.h>
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -95,7 +97,7 @@ const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}};
 
-Uint32 *textures[8];
+upng_t *textures[8];
 
 SDL_Window *initializeWindow() {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == false) {
@@ -137,6 +139,8 @@ void render_3D_projections() {
     int y_end = y_start + wall_strip_height;
     if (y_end >= WINDOW_HEIGHT)
       y_end = WINDOW_HEIGHT - 1;
+    int texture_width = upng_get_width(textures[rays[i].wallHitContent - 1]);
+    int texture_height = upng_get_height(textures[rays[i].wallHitContent - 1]);
     int texture_offset_x = rays[i].wasHitVertical
                                ? (int)(rays[i].wallHitY) % (int)TILE_SIZE
                                : (int)(rays[i].wallHitX) % (int)TILE_SIZE;
@@ -149,12 +153,12 @@ void render_3D_projections() {
       for (int y = y_start; y < y_end; y++) {
         int texture_offset_y =
             (y + (wall_strip_height / 2 - WINDOW_HEIGHT / 2)) *
-            ((float)TEXTURE_HEIGHT / wall_strip_height);
-        Uint32 texel_color =
-            textures[rays[i].wallHitContent-1]
-                    [TEXTURE_WIDTH * texture_offset_y + texture_offset_x];
+            ((float)texture_height / wall_strip_height);
+        uint32_t texel = ((uint32_t *)upng_get_buffer(
+            textures[rays[i].wallHitContent -
+                     1]))[texture_width * texture_offset_y + texture_offset_x];
         color_buffer[y * (int)WINDOW_WIDTH + x] =
-            texel_color + ((int)(0xFF000000 * shade) & (0xFF000000));
+            texel + ((int)(0xFF000000 * shade) & (0xFF000000));
       }
       for (int j = y_end; j < WINDOW_HEIGHT; j++) {
         color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFF2F4F4F;
@@ -364,17 +368,23 @@ int main(void) {
       mmap(NULL, sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT,
            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
-  textures[0] = (Uint32 *)REDBRICK_TEXTURE;
-  textures[1] = (Uint32 *)PURPLESTONE_TEXTURE;
-  textures[2] = (Uint32 *)MOSSYSTONE_TEXTURE;
-  textures[3] = (Uint32 *)GRAYSTONE_TEXTURE;
-  textures[4] = (Uint32 *)COLORSTONE_TEXTURE;
-  textures[5] = (Uint32 *)BLUESTONE_TEXTURE;
-  textures[6] = (Uint32 *)WOOD_TEXTURE;
-  textures[7] = (Uint32 *)EAGLE_TEXTURE;
+  textures[0] = upng_new_from_file("c/images/redbrick.png");
+  textures[1] = upng_new_from_file("c/images/purplestone.png");
+  textures[2] = upng_new_from_file("c/images/mossystone.png");
+  textures[3] = upng_new_from_file("c/images/graystone.png");
+  textures[4] = upng_new_from_file("c/images/colorstone.png");
+  textures[5] = upng_new_from_file("c/images/bluestone.png");
+  textures[6] = upng_new_from_file("c/images/wood.png");
+  textures[7] = upng_new_from_file("c/images/eagle.png");
+
+  for (int i = 0; i < NUM_TEXTURES; i++) {
+    assert(textures[i] != NULL);
+    upng_decode(textures[i]);
+    assert(upng_get_error(textures[i]) == UPNG_EOK);
+  }
 
   SDL_Texture *color_buffer_texture = SDL_CreateTexture(
-      renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+      renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING,
       WINDOW_WIDTH, WINDOW_HEIGHT);
 
   unsigned int last_frame_ticks = 0;
