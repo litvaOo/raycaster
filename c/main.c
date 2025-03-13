@@ -230,9 +230,11 @@ float normalizeAngle(float angle) {
 }
 
 void cast_all_rays(void) {
-  float ray_angle = player.rotationAngle - (FOV_ANGLE / 2);
+  float projection_plane_distance = (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2);
   for (int ray_id = 0; ray_id < NUM_RAYS; ray_id++) {
-    float newRay = normalizeAngle(ray_angle);
+    float newRay =
+        normalizeAngle(player.rotationAngle + atan((ray_id - NUM_RAYS / 2) /
+                                                   projection_plane_distance));
     bool isRayDown = newRay > 0 && newRay < M_PI;
     bool isRayRight = newRay < 0.5 * M_PI || newRay > 1.5 * M_PI;
     bool hit_horizonal, hit_vertical = false;
@@ -342,7 +344,6 @@ void cast_all_rays(void) {
         newRay,           res_x,      res_y,     distance,    wallHitContent,
         end_hit_vertical, !isRayDown, isRayDown, !isRayRight, isRayRight,
     };
-    ray_angle += FOV_ANGLE / NUM_RAYS;
   }
 }
 
