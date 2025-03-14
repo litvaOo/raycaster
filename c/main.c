@@ -27,8 +27,8 @@
 #define TILE_SIZE 64.0
 #define MAP_NUM_ROWS 13
 #define MAP_NUM_COLS 20
-#define WINDOW_WIDTH (MAP_NUM_COLS * TILE_SIZE)
-#define WINDOW_HEIGHT (MAP_NUM_ROWS * TILE_SIZE)
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
 #define WALL_STRIP_WIDTH 1
 #define TEXTURE_WIDTH 64
 #define TEXTURE_HEIGHT 64
@@ -104,8 +104,11 @@ SDL_Window *initializeWindow() {
     fprintf(stderr, "Error initializing SDL %s\n", SDL_GetError());
     exit(1);
   }
-  SDL_Window *window = SDL_CreateWindow("Raycaster", WINDOW_WIDTH,
-                                        WINDOW_HEIGHT, SDL_WINDOW_BORDERLESS);
+  const SDL_DisplayMode *display_mode = SDL_GetCurrentDisplayMode(1);
+  int true_width = display_mode->w;
+  int true_height = display_mode->h;
+  SDL_Window *window = SDL_CreateWindow("Raycaster", true_width,
+                                        true_height, SDL_WINDOW_BORDERLESS);
   if (window == NULL) {
     fprintf(stderr, "Error initializing SDL window %s\n", SDL_GetError());
     exit(1);
@@ -168,9 +171,8 @@ void render_3D_projections() {
 }
 
 void clear_color_buffer(Uint32 color) {
-  for (int x = 0; x < WINDOW_WIDTH; x++)
-    for (int y = 0; y < WINDOW_HEIGHT; y++)
-      color_buffer[y * (int)WINDOW_WIDTH + x] = color;
+  for (int i = 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++)
+      color_buffer[i] = color;
 }
 
 void render_map(SDL_Renderer *renderer) {
@@ -194,15 +196,6 @@ void render_map(SDL_Renderer *renderer) {
   }
 }
 
-void render_player(SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-  SDL_RenderLine(
-      renderer, player.x * MINIMAP_SCALE_FACTOR,
-      player.y * MINIMAP_SCALE_FACTOR,
-      player.x * MINIMAP_SCALE_FACTOR + cos(player.rotationAngle) * 40,
-      player.y * MINIMAP_SCALE_FACTOR + sin(player.rotationAngle) * 40);
-}
-
 void render_color_buffer(SDL_Renderer *renderer, SDL_Texture *texture) {
   SDL_UpdateTexture(texture, NULL, color_buffer, WINDOW_WIDTH * sizeof(Uint32));
   SDL_RenderTexture(renderer, texture, NULL, NULL);
@@ -216,7 +209,6 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture) {
   clear_color_buffer(0xFF00EE30);
 
   render_map(renderer);
-  render_player(renderer);
   render_3D_projections();
   SDL_RenderPresent(renderer);
 }
@@ -258,9 +250,9 @@ void cast_all_rays(void) {
     int horizontal_wall_id_x = 0, horizontal_wall_id_y = 0;
 
     while (next_horizontal_touch_x >= 0 &&
-           next_horizontal_touch_x <= WINDOW_WIDTH &&
+           next_horizontal_touch_x <= MAP_NUM_COLS*TILE_SIZE &&
            next_horizontal_touch_y >= 0 &&
-           next_horizontal_touch_y <= WINDOW_HEIGHT) {
+           next_horizontal_touch_y <= MAP_NUM_ROWS*TILE_SIZE) {
       if (map[(int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
                          TILE_SIZE)]
              [(int)floor(next_horizontal_touch_x / TILE_SIZE)] != 0) {
@@ -296,9 +288,9 @@ void cast_all_rays(void) {
     int vertical_wall_id_x, vertical_wall_id_y = 0;
 
     while ((next_vertical_touch_x >= 0) &&
-           (next_vertical_touch_x <= WINDOW_WIDTH) &&
+           (next_vertical_touch_x <= MAP_NUM_COLS*TILE_SIZE) &&
            (next_vertical_touch_y >= 0) &&
-           (next_vertical_touch_y <= WINDOW_HEIGHT)) {
+           (next_vertical_touch_y <= MAP_NUM_ROWS * TILE_SIZE)) {
       if (map[(int)(next_vertical_touch_y / TILE_SIZE)]
              [(int)((next_vertical_touch_x + (!isRayRight ? -1 : 0)) /
                     TILE_SIZE)] != 0) {
