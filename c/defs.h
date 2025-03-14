@@ -1,0 +1,18 @@
+#pragma once
+
+#define FRAME_RATE 120
+
+#define TILE_SIZE 64.0
+#define MAP_NUM_ROWS 13
+#define MAP_NUM_COLS 20
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
+#define WALL_STRIP_WIDTH 1
+#define TEXTURE_WIDTH 64
+#define TEXTURE_HEIGHT 64
+#define MINIMAP_SCALE_FACTOR 0.3
+#define NUM_TEXTURES 8
+#define FOV_ANGLE (60 * (M_PI / 180))
+
+#define NUM_RAYS WINDOW_WIDTH
+

@@ -22,21 +22,8 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#define FRAME_RATE 120
-
-#define TILE_SIZE 64.0
-#define MAP_NUM_ROWS 13
-#define MAP_NUM_COLS 20
-#define WINDOW_WIDTH 1920
-#define WINDOW_HEIGHT 1080
-#define WALL_STRIP_WIDTH 1
-#define TEXTURE_WIDTH 64
-#define TEXTURE_HEIGHT 64
-#define MINIMAP_SCALE_FACTOR 0.3
-#define NUM_TEXTURES 8
-#define FOV_ANGLE (60 * (M_PI / 180))
-
-#define NUM_RAYS WINDOW_WIDTH
+#include "defs.h"
+#include "graphics.h"
 
 typedef struct Player Player;
 
@@ -81,7 +68,6 @@ Player player = {
 
 Ray *rays;
 
-Uint32 *color_buffer;
 const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
@@ -99,34 +85,7 @@ const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
 
 upng_t *textures[8];
 
-SDL_Window *initializeWindow() {
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == false) {
-    fprintf(stderr, "Error initializing SDL %s\n", SDL_GetError());
-    exit(1);
-  }
-  const SDL_DisplayMode *display_mode = SDL_GetCurrentDisplayMode(1);
-  int true_width = display_mode->w;
-  int true_height = display_mode->h;
-  SDL_Window *window = SDL_CreateWindow("Raycaster", true_width,
-                                        true_height, SDL_WINDOW_BORDERLESS);
-  if (window == NULL) {
-    fprintf(stderr, "Error initializing SDL window %s\n", SDL_GetError());
-    exit(1);
-  }
-  return window;
-}
-
-SDL_Renderer *initializeRenderer(SDL_Window *window) {
-  SDL_Renderer *renderer = SDL_CreateRenderer(window, NULL);
-  if (renderer == NULL) {
-    fprintf(stderr, "Error initializing SDL renderer %s\n", SDL_GetError());
-    exit(1);
-  }
-  SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-  return renderer;
-}
-
-void render_3D_projections() {
+void render_3D_projections(Uint32 *color_buffer) {
   for (int i = 0; i < NUM_RAYS; i++) {
     float distance =
         rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle);
@@ -170,11 +129,6 @@ void render_3D_projections() {
   }
 }
 
-void clear_color_buffer(Uint32 color) {
-  for (int i = 0; i < WINDOW_WIDTH*WINDOW_HEIGHT; i++)
-      color_buffer[i] = color;
-}
-
 void render_map(SDL_Renderer *renderer) {
   for (int i = 0; i < MAP_NUM_ROWS; i++) {
     for (int j = 0; j < MAP_NUM_COLS; j++) {
@@ -196,20 +150,16 @@ void render_map(SDL_Renderer *renderer) {
   }
 }
 
-void render_color_buffer(SDL_Renderer *renderer, SDL_Texture *texture) {
-  SDL_UpdateTexture(texture, NULL, color_buffer, WINDOW_WIDTH * sizeof(Uint32));
-  SDL_RenderTexture(renderer, texture, NULL, NULL);
-}
 
-void render(SDL_Renderer *renderer, SDL_Texture *texture) {
+void render(SDL_Renderer *renderer, SDL_Texture *texture, Uint32 *color_buffer) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
 
-  render_color_buffer(renderer, texture);
-  clear_color_buffer(0xFF00EE30);
+  render_color_buffer(renderer, texture, color_buffer);
+  clear_color_buffer(color_buffer, 0xFF00EE30);
 
   render_map(renderer);
-  render_3D_projections();
+  render_3D_projections(color_buffer);
   SDL_RenderPresent(renderer);
 }
 
@@ -357,7 +307,7 @@ int main(void) {
   SDL_Renderer *renderer = initializeRenderer(window);
   rays = mmap(NULL, sizeof(Ray) * NUM_RAYS, PROT_READ | PROT_WRITE,
               MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-  color_buffer =
+  Uint32 *color_buffer =
       mmap(NULL, sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT,
            PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
@@ -432,6 +382,6 @@ int main(void) {
       return 0;
     }
     update();
-    render(renderer, color_buffer_texture);
+    render(renderer, color_buffer_texture, color_buffer);
   }
 }
