@@ -1,5 +1,6 @@
 #include "graphics.h"
 #include "defs.h"
+#include "ray.h"
 #include <stdio.h>
 #include <stdlib.h>
 

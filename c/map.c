@@ -18,7 +18,7 @@ const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
 
 int map_content(int x, int y) { return map[x][y]; }
 
-void render_map(SDL_Renderer *renderer, Uint32 *color_buffer) {
+void render_map(Uint32 *color_buffer) {
   for (int i = 0; i < MAP_NUM_ROWS; i++) {
     for (int j = 0; j < MAP_NUM_COLS; j++) {
       int tile_x = j * TILE_SIZE * MINIMAP_SCALE_FACTOR;
