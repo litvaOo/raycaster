@@ -15,4 +15,3 @@
 #define FOV_ANGLE (60 * (M_PI / 180))
 
 #define NUM_RAYS WINDOW_WIDTH
-

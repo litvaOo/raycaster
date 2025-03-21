@@ -17,9 +17,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 
 #include "defs.h"
@@ -129,16 +127,16 @@ void render_3D_projections(Uint32 *color_buffer) {
   }
 }
 
-void render_map(SDL_Renderer *renderer) {
+void render_map(SDL_Renderer *renderer, Uint32 *color_buffer) {
   for (int i = 0; i < MAP_NUM_ROWS; i++) {
     for (int j = 0; j < MAP_NUM_COLS; j++) {
       int tile_x = j * TILE_SIZE * MINIMAP_SCALE_FACTOR;
       int tile_y = i * TILE_SIZE * MINIMAP_SCALE_FACTOR;
-      int tile_color = 255 * map[i][j];
-      SDL_SetRenderDrawColor(renderer, tile_color, tile_color, tile_color, 255);
-      SDL_FRect map_tile = {tile_x, tile_y, TILE_SIZE * MINIMAP_SCALE_FACTOR,
-                            TILE_SIZE * MINIMAP_SCALE_FACTOR};
-      SDL_RenderFillRect(renderer, &map_tile);
+      int tile_color = map[i][j] == 0 ? 0xFFFFFFFF : 0x000000FF;
+
+      draw_rectangle(color_buffer, tile_color, tile_x, tile_y,
+                     TILE_SIZE * MINIMAP_SCALE_FACTOR,
+                     TILE_SIZE * MINIMAP_SCALE_FACTOR);
     }
   }
   SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
@@ -150,16 +148,16 @@ void render_map(SDL_Renderer *renderer) {
   }
 }
 
-
-void render(SDL_Renderer *renderer, SDL_Texture *texture, Uint32 *color_buffer) {
+void render(SDL_Renderer *renderer, SDL_Texture *texture,
+            Uint32 *color_buffer) {
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
 
   render_color_buffer(renderer, texture, color_buffer);
   clear_color_buffer(color_buffer, 0xFF00EE30);
 
-  render_map(renderer);
   render_3D_projections(color_buffer);
+  render_map(renderer, color_buffer);
   SDL_RenderPresent(renderer);
 }
 
@@ -200,9 +198,9 @@ void cast_all_rays(void) {
     int horizontal_wall_id_x = 0, horizontal_wall_id_y = 0;
 
     while (next_horizontal_touch_x >= 0 &&
-           next_horizontal_touch_x <= MAP_NUM_COLS*TILE_SIZE &&
+           next_horizontal_touch_x <= MAP_NUM_COLS * TILE_SIZE &&
            next_horizontal_touch_y >= 0 &&
-           next_horizontal_touch_y <= MAP_NUM_ROWS*TILE_SIZE) {
+           next_horizontal_touch_y <= MAP_NUM_ROWS * TILE_SIZE) {
       if (map[(int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
                          TILE_SIZE)]
              [(int)floor(next_horizontal_touch_x / TILE_SIZE)] != 0) {
@@ -238,7 +236,7 @@ void cast_all_rays(void) {
     int vertical_wall_id_x, vertical_wall_id_y = 0;
 
     while ((next_vertical_touch_x >= 0) &&
-           (next_vertical_touch_x <= MAP_NUM_COLS*TILE_SIZE) &&
+           (next_vertical_touch_x <= MAP_NUM_COLS * TILE_SIZE) &&
            (next_vertical_touch_y >= 0) &&
            (next_vertical_touch_y <= MAP_NUM_ROWS * TILE_SIZE)) {
       if (map[(int)(next_vertical_touch_y / TILE_SIZE)]
