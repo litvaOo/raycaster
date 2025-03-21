@@ -22,6 +22,8 @@
 
 #include "defs.h"
 #include "graphics.h"
+#include "map.h"
+#include "ray.h"
 
 typedef struct Player Player;
 
@@ -37,21 +39,6 @@ struct Player {
   float turnSpeed;
 };
 
-typedef struct Ray Ray;
-
-struct Ray {
-  float rayAngle;
-  float wallHitX;
-  float wallHitY;
-  float distance;
-  int wallHitContent;
-  bool wasHitVertical;
-  bool isRayFacingUp;
-  bool isRayFacingDown;
-  bool isRayFacingLeft;
-  bool isRayFacingRight;
-};
-
 Player player = {
     WINDOW_WIDTH / 2,
     WINDOW_HEIGHT / 2,
@@ -65,21 +52,6 @@ Player player = {
 };
 
 Ray *rays;
-
-const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 2, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}};
 
 upng_t *textures[8];
 
@@ -124,27 +96,6 @@ void render_3D_projections(Uint32 *color_buffer) {
         color_buffer[j * (int)WINDOW_WIDTH + x] = 0xFF2F4F4F;
       }
     }
-  }
-}
-
-void render_map(SDL_Renderer *renderer, Uint32 *color_buffer) {
-  for (int i = 0; i < MAP_NUM_ROWS; i++) {
-    for (int j = 0; j < MAP_NUM_COLS; j++) {
-      int tile_x = j * TILE_SIZE * MINIMAP_SCALE_FACTOR;
-      int tile_y = i * TILE_SIZE * MINIMAP_SCALE_FACTOR;
-      int tile_color = map[i][j] == 0 ? 0xFFFFFFFF : 0x000000FF;
-
-      draw_rectangle(color_buffer, tile_color, tile_x, tile_y,
-                     TILE_SIZE * MINIMAP_SCALE_FACTOR,
-                     TILE_SIZE * MINIMAP_SCALE_FACTOR);
-    }
-  }
-  SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
-  for (int i = 0; i < NUM_RAYS; i++) {
-    SDL_RenderLine(renderer, player.x * MINIMAP_SCALE_FACTOR,
-                   player.y * MINIMAP_SCALE_FACTOR,
-                   rays[i].wallHitX * MINIMAP_SCALE_FACTOR,
-                   rays[i].wallHitY * MINIMAP_SCALE_FACTOR);
   }
 }
 
@@ -201,9 +152,10 @@ void cast_all_rays(void) {
            next_horizontal_touch_x <= MAP_NUM_COLS * TILE_SIZE &&
            next_horizontal_touch_y >= 0 &&
            next_horizontal_touch_y <= MAP_NUM_ROWS * TILE_SIZE) {
-      if (map[(int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
-                         TILE_SIZE)]
-             [(int)floor(next_horizontal_touch_x / TILE_SIZE)] != 0) {
+      if (map_content(
+              (int)floor((next_horizontal_touch_y + (!isRayDown ? -1 : 0)) /
+                         TILE_SIZE),
+              (int)floor(next_horizontal_touch_x / TILE_SIZE)) != 0) {
         horizontal_wall_hit_x = next_horizontal_touch_x;
         horizontal_wall_hit_y = next_horizontal_touch_y;
         horizontal_wall_id_y =
@@ -239,9 +191,9 @@ void cast_all_rays(void) {
            (next_vertical_touch_x <= MAP_NUM_COLS * TILE_SIZE) &&
            (next_vertical_touch_y >= 0) &&
            (next_vertical_touch_y <= MAP_NUM_ROWS * TILE_SIZE)) {
-      if (map[(int)(next_vertical_touch_y / TILE_SIZE)]
-             [(int)((next_vertical_touch_x + (!isRayRight ? -1 : 0)) /
-                    TILE_SIZE)] != 0) {
+      if (map_content((int)(next_vertical_touch_y / TILE_SIZE),
+                      (int)((next_vertical_touch_x + (!isRayRight ? -1 : 0)) /
+                            TILE_SIZE)) != 0) {
         vertical_wall_hit_x = next_vertical_touch_x;
         vertical_wall_hit_y = next_vertical_touch_y;
         vertical_wall_id_x =
@@ -271,19 +223,17 @@ void cast_all_rays(void) {
       res_x = horizontal_wall_hit_x;
       res_y = horizontal_wall_hit_y;
       distance = horizontal_hit_distance;
-      wallHitContent = map[horizontal_wall_id_y][horizontal_wall_id_x];
+      wallHitContent = map_content(horizontal_wall_id_y, horizontal_wall_id_x);
     } else {
       res_x = vertical_wall_hit_x;
       res_y = vertical_wall_hit_y;
       distance = vertical_hit_distance;
-      wallHitContent = map[vertical_wall_id_y][vertical_wall_id_x];
+      wallHitContent = map_content(vertical_wall_id_y, vertical_wall_id_x);
       end_hit_vertical = true;
     }
 
-    rays[ray_id] = (Ray){
-        newRay,           res_x,      res_y,     distance,    wallHitContent,
-        end_hit_vertical, !isRayDown, isRayDown, !isRayRight, isRayRight,
-    };
+    rays[ray_id] =
+        (Ray){newRay, res_x, res_y, distance, wallHitContent, end_hit_vertical};
   }
 }
 
@@ -293,7 +243,7 @@ void update(void) {
 
   float new_x = player.x + move_step * cos(player.rotationAngle);
   float new_y = player.y + move_step * sin(player.rotationAngle);
-  if (map[(int)(new_y / TILE_SIZE)][(int)(new_x / TILE_SIZE)] == 0) {
+  if (map_content((int)(new_y / TILE_SIZE), (int)(new_x / TILE_SIZE)) == 0) {
     player.x = new_x;
     player.y = new_y;
   }
