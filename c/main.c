@@ -82,7 +82,7 @@ void render(SDL_Renderer *renderer, SDL_Texture *texture, Uint32 *color_buffer,
 
   render_3D_projections(color_buffer, rays, player);
   render_map(color_buffer);
-  render_rays(color_buffer, 0xFF00FFFF, rays);
+  render_rays(color_buffer, 0xFFFF0000, rays, player);
   SDL_RenderPresent(renderer);
 }
 

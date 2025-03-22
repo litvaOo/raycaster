@@ -1,4 +1,7 @@
 #include "ray.h"
+#include "defs.h"
+#include "graphics.h"
+#include "player.h"
 
 float normalizeAngle(float angle) {
   angle = remainder(angle, M_PI * 2);
@@ -125,4 +128,12 @@ void cast_all_rays(Player *player, Ray *rays) {
   }
 }
 
-void render_rays(Uint32 *color_buffer, Uint32 color, Ray *rays) {}
+void render_rays(Uint32 *color_buffer, Uint32 color, Ray *rays,
+                 Player *player) {
+  for (int i = 0; i < NUM_RAYS; i++) {
+    draw_line(player->x * MINIMAP_SCALE_FACTOR,
+              player->y * MINIMAP_SCALE_FACTOR,
+              rays[i].wallHitX * MINIMAP_SCALE_FACTOR,
+              rays[i].wallHitY * MINIMAP_SCALE_FACTOR, color, color_buffer);
+  }
+}

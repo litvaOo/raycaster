@@ -19,4 +19,4 @@ struct Ray {
 
 float normalizeAngle(float angle);
 void cast_all_rays(Player *player, Ray *rays);
-void render_rays(Uint32 *color_buffer, Uint32 color, Ray *rays);
+void render_rays(Uint32 *color_buffer, Uint32 color, Ray *rays, Player *player);

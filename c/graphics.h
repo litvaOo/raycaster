@@ -22,3 +22,5 @@ void render_color_buffer(SDL_Renderer *renderer, SDL_Texture *texture,
                          Uint32 *color_buffer);
 void draw_rectangle(Uint32 *color_buffer, Uint32 color, int x, int y,
                     float width, float height);
+void draw_line(int x0, int y0, int x1, int y1, Uint32 color,
+               Uint32 *color_buffer);
