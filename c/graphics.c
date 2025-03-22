@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 SDL_Window *initializeWindow(void) {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == false) {
     fprintf(stderr, "Error initializing SDL %s\n", SDL_GetError());
@@ -53,7 +54,6 @@ void draw_line(int x0, int y0, int x1, int y1, Uint32 color,
   int delta_x = x1 - x0;
   int delta_y = y1 - y0;
 
-  // int side_length = abs(delta_x);
   int side_length = abs(delta_x) >= abs(delta_y) ? abs(delta_x) : abs(delta_y);
 
   float x_inc = delta_x / (float)side_length;
@@ -63,7 +63,8 @@ void draw_line(int x0, int y0, int x1, int y1, Uint32 color,
   float current_y = y0;
 
   for (int i = 0; i <= side_length; i++) {
-    color_buffer[(int)round(current_y) * WINDOW_WIDTH + (int)current_x] = color;
+    color_buffer[(int)round(current_y) * (int)WINDOW_WIDTH + (int)current_x] =
+        color;
     current_x += x_inc;
     current_y += y_inc;
   }
